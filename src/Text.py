@@ -2,6 +2,8 @@
 
 
 """
+import pandas as pd
+
 RE_TABLE = {
     ".": "<re_dot>",
     "^": "<re_head>",
@@ -38,7 +40,18 @@ def re_replace(text,inverse=False):
 #%%
 class Content:
     """
-        Content為整篇文章的内容
+        Content為整篇文章的内容，一個Content會具有以下屬性：
+            - content: 文章的內容
+            - paragraph_split_method: 段落分割方法
+            - title: 文章的標題
+            - text_ID: 文章的ID
+            - df_sentence: 文章的句子列表
+                - paragraph_ID: 段落編號
+                - sentence_ID: 句子編號
+                - sentence: 句子內容
+                - label1: 句子的第一個標籤
+                - label2: 句子的第二個標籤
+                - ...
         可以拆分成多個Paragraph
         支持不同的段落分割方式
             - 換行即為段落
@@ -46,19 +59,34 @@ class Content:
             - 縮排為前一個段落的一部分
             - 使用openai的API來分割段落
     """
-    def __init__(self, content, paragraph_split_method="line", **kwargs): # 支援往下傳遞的參數
-        # 檢查參數
+    def __init__(self, content, paragraph_split_method="line", title="Content", text_ID=None, **kwargs): # 支援往下傳遞的參數
+        #* 檢查參數
         if not content:
             raise ValueError("The 'content' parameter cannot be empty.")
+        if not isinstance(content, str):
+            raise TypeError("The 'content' parameter must be a string.")
         
-        # 參數設定
+        #* 參數設定 
         self.paragraph_split_method = paragraph_split_method # 段落分割方法
-        self.kwargs = kwargs.items() # 支援往下傳遞的參數
+        self.title = title # 文章的標題
+        # 如果沒有指定ID，則使用文章的內容的MD5值作為ID
+        if text_ID is None:
+            import hashlib
+            self.text_ID = hashlib.md5(content.encode("utf-8")).hexdigest()
+        else:
+            self.text_ID = text_ID
         
+        #* 初始化
         self.content = re_replace(content) # 前處理去除特殊符號
         paragraph_list = self.split_paragraphs() # 段落列表
-        # 將每個段落轉換成Paragraph類型的物件
-        self.Paragraph_list = [Paragraph(paragraph, **kwargs) for paragraph in paragraph_list]
+        # 將每個段落轉換成Paragraph類型的物件，加上段落編號為ID
+        self.Paragraph_list = [Paragraph(paragraph, paragraph_ID=i, **kwargs) for i, paragraph in enumerate(paragraph_list)]
+        #// self.Paragraph_list = [Paragraph(paragraph, **kwargs) for paragraph in paragraph_list]
+        
+        #* 初始化df_sentence
+        # 將每個段落的df_sentence合併成一個大的df_sentence, 並加上段落ID
+        df_sentence_list = [P.df_sentence.assign(paragraph_ID=P.paragraph_ID) for P in self.Paragraph_list]
+        self.df_sentence = pd.concat(df_sentence_list, ignore_index=True)
         
     def split_paragraphs(self):
         """
@@ -150,17 +178,49 @@ class Content:
 
 class Paragraph:
     """
-        Paragraph為文章的一個段落
+        Paragraph為文章的一個段落，一個Paragraph會包含以下資訊
+            - paragraph: 段落的內容
+            - sentence_split_method: 句子分割方法
+            - paragraph_ID: 段落的ID
+            - df_sentence: 句子的DataFrame，包含以下欄位
+                - sentence_ID: 句子的ID
+                - sentence: 句子的內容
+                - label1: 句子的第一個標籤
+                - label2: 句子的第二個標籤
+                - ...
         可以拆分成多個Sentence
         支持不同句子分割方式
             - 使用符號分割，如句號、問號、感嘆號
             - 使用長度分割，如每個句子長度不超過20個字
             - 使用openai的API來分割段落
     """
-    def __init__(self, paragraph, sentence_split_method="length", **kwargs):
-        self.paragraph = re_replace(paragraph)
+    def __init__(self, paragraph, sentence_split_method="length", paragraph_ID=0, **kwargs):
+        #* 檢查參數
+        if not isinstance(paragraph, str):
+            raise TypeError("paragraph must be a string")
+        if not isinstance(paragraph_ID, int):
+            raise TypeError("paragraph_ID must be an integer")
+        
+        #* 初始化
+        self.paragraph = paragraph
         self.sentence_split_method = sentence_split_method
-        self.sentence_list = self.split_sentences()
+        self.paragraph_ID = paragraph_ID
+        sentence_list = self.split_sentences()
+        
+        #* 初始化Sentence
+        # 將每個句子轉換成Sentence類型的物件，加上句子編號為ID
+        self.Sentence_list = [Sentence(sentence, sentence_ID=i, **kwargs) for i, sentence in enumerate(sentence_list)]
+        
+        #* 初始化df_sentence
+        model_list = kwargs.get("model_list", [])
+        model_name_list = [model.model_name for model in model_list]
+        self.df_sentence = pd.DataFrame(
+            columns = ["sentence_ID", "sentence"] + model_name_list
+        )
+        self.df_sentence["sentence_ID"] = [S.sentence_ID for S in self.Sentence_list]
+        self.df_sentence["sentence"] = [S.sentence for S in self.Sentence_list]
+        for model_name in model_name_list:
+            self.df_sentence[model_name] = [S.tags[model_name] for S in self.Sentence_list]
         
     def split_sentences(self):
         """
@@ -222,8 +282,26 @@ class Sentence:
         Sentence為段落的一個句子，在目前系統中為最小單位
         每個句子會針對不同的判斷模型，有不同的tag
     """
-    def __init__(self, sentence):
-        self.sentence = re_replace(sentence)
-        self.tags = {}
+    def __init__(self, sentence, sentence_ID=0, model_list=[]):
+        #* 檢查參數
+        if not isinstance(sentence, str):
+            raise TypeError("sentence must be a string")
+        if not isinstance(sentence_ID, int):
+            raise TypeError("sentence_ID must be an integer")
         
+        #* 初始化
+        self.sentence = sentence
+        self.sentence_ID = sentence_ID
+        self.model_list = model_list
+        self.tags = {}
+        for model in model_list:
+            self.tags[model.model_name] = None
+        
+    
+    def predict(self):
+        """
+            使用不同的模型來預測句子的tag
+        """
+        for model in self.model_list:
+            self.tags[model.model_name] = model.predict(self.sentence)
     
