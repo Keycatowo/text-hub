@@ -87,6 +87,8 @@ class Content:
         # 將每個段落的df_sentence合併成一個大的df_sentence, 並加上段落ID
         df_sentence_list = [P.df_sentence.assign(paragraph_ID=P.paragraph_ID) for P in self.Paragraph_list]
         self.df_sentence = pd.concat(df_sentence_list, ignore_index=True)
+        # 重設column順序，paragraph_ID放在最前面、sentence_ID放在第二個、sentence放在第三個
+        self.df_sentence = self.df_sentence[["paragraph_ID","sentence_ID","sentence"] + [col for col in self.df_sentence.columns if col not in ["paragraph_ID","sentence_ID","sentence"]]]
         
     def split_paragraphs(self):
         """
