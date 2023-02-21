@@ -77,10 +77,11 @@ class Content:
             self.text_ID = text_ID
         
         #* 初始化
-        self.content = re_replace(content) # 前處理去除特殊符號
+        #! self.content = re_replace(content) # 前處理去除特殊符號
+        self.content = content
         paragraph_list = self.split_paragraphs() # 段落列表
         # 將每個段落轉換成Paragraph類型的物件，加上段落編號為ID
-        self.Paragraph_list = [Paragraph(paragraph, paragraph_ID=i, **kwargs) for i, paragraph in enumerate(paragraph_list)]
+        self.Paragraph_list = [Paragraph(paragraph, paragraph_ID=i+1, **kwargs) for i, paragraph in enumerate(paragraph_list)]
         #// self.Paragraph_list = [Paragraph(paragraph, **kwargs) for paragraph in paragraph_list]
         
         #* 初始化df_sentence
@@ -176,8 +177,13 @@ class Content:
         return paragraph_list
                 
     
-
-
+    def predict(self):
+        _ = [P.predict() for P in self.Paragraph_list]
+        df_sentence_list = [P.df_sentence.assign(paragraph_ID=P.paragraph_ID) for P in self.Paragraph_list]
+        self.df_sentence = pd.concat(df_sentence_list, ignore_index=True)
+        # 重設column順序，paragraph_ID放在最前面、sentence_ID放在第二個、sentence放在第三個
+        self.df_sentence = self.df_sentence[["paragraph_ID","sentence_ID","sentence"] + [col for col in self.df_sentence.columns if col not in ["paragraph_ID","sentence_ID","sentence"]]]
+        return self.df_sentence
 class Paragraph:
     """
         Paragraph為文章的一個段落，一個Paragraph會包含以下資訊
@@ -211,17 +217,17 @@ class Paragraph:
         
         #* 初始化Sentence
         # 將每個句子轉換成Sentence類型的物件，加上句子編號為ID
-        self.Sentence_list = [Sentence(sentence, sentence_ID=i, **kwargs) for i, sentence in enumerate(sentence_list)]
+        self.Sentence_list = [Sentence(sentence, sentence_ID=i+1, **kwargs) for i, sentence in enumerate(sentence_list)]
         
         #* 初始化df_sentence
         model_list = kwargs.get("model_list", [])
-        model_name_list = [model.model_name for model in model_list]
+        self.model_name_list = [model.model_name for model in model_list]
         self.df_sentence = pd.DataFrame(
-            columns = ["sentence_ID", "sentence"] + model_name_list
+            columns = ["sentence_ID", "sentence"] + self.model_name_list
         )
         self.df_sentence["sentence_ID"] = [S.sentence_ID for S in self.Sentence_list]
         self.df_sentence["sentence"] = [S.sentence for S in self.Sentence_list]
-        for model_name in model_name_list:
+        for model_name in self.model_name_list:
             self.df_sentence[model_name] = [S.tags[model_name] for S in self.Sentence_list]
         
     def split_sentences(self):
@@ -278,6 +284,12 @@ class Paragraph:
         sentence_list.append(sub_sentence_buffer) # 最後一個句子
         return sentence_list
     
+    def predict(self):
+        _ = [S.predict() for S in self.Sentence_list]
+        for model_name in self.model_name_list:
+            self.df_sentence[model_name] = [S.tags[model_name] for S in self.Sentence_list]
+        return self.df_sentence
+    
 
 class Sentence:
     """
@@ -306,4 +318,5 @@ class Sentence:
         """
         for model in self.model_list:
             self.tags[model.model_name] = model.predict(self.sentence)
+        return self.tags
     
