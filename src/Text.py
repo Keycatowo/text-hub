@@ -58,8 +58,13 @@ class Content:
             - 縮排為一個新的段落
             - 縮排為前一個段落的一部分
             - 使用openai的API來分割段落
+        支持段落regex過濾
     """
-    def __init__(self, content, paragraph_split_method="line", title="Content", text_ID=None, **kwargs): # 支援往下傳遞的參數
+    def __init__(self, content, 
+                 paragraph_split_method="line", 
+                 title="Content", text_ID=None,
+                 paragraph_filter_regex=None,
+                 **kwargs): # 支援往下傳遞的參數
         #* 檢查參數
         if not content:
             raise ValueError("The 'content' parameter cannot be empty.")
@@ -69,6 +74,7 @@ class Content:
         #* 參數設定 
         self.paragraph_split_method = paragraph_split_method # 段落分割方法
         self.title = title # 文章的標題
+        self.paragraph_filter_regex = paragraph_filter_regex
         # 如果沒有指定ID，則使用文章的內容的MD5值作為ID
         if text_ID is None:
             import hashlib
@@ -80,6 +86,11 @@ class Content:
         #! self.content = re_replace(content) # 前處理去除特殊符號
         self.content = content
         paragraph_list = self.split_paragraphs() # 段落列表
+        
+        # 過濾段落
+        if self.paragraph_filter_regex is not None and self.paragraph_filter_regex != "":
+            paragraph_list = self.paragraph_filter(paragraph_list)
+            
         # 將每個段落轉換成Paragraph類型的物件，加上段落編號為ID
         self.Paragraph_list = [Paragraph(paragraph, paragraph_ID=i+1, **kwargs) for i, paragraph in enumerate(paragraph_list)]
         #// self.Paragraph_list = [Paragraph(paragraph, **kwargs) for paragraph in paragraph_list]
@@ -176,6 +187,16 @@ class Content:
         paragraph_list = [paragraph for paragraph in paragraph_list if paragraph != ""]
         return paragraph_list
                 
+    def paragraph_filter(self, paragraph_list):
+        import re
+        new_paragraph_list = []
+        for paragraph in paragraph_list:
+            matches = re.finditer(self.paragraph_filter_regex, paragraph, re.MULTILINE)
+            for match in matches:
+                if match.group() != "":
+                    new_paragraph_list.append(match.group())
+        return new_paragraph_list
+        
     
     def predict(self):
         _ = [P.predict() for P in self.Paragraph_list]
