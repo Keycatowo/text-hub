@@ -46,8 +46,8 @@ class Content:
             - title: 文章的標題
             - text_ID: 文章的ID
             - df_sentence: 文章的句子列表
-                - paragraph_ID: 段落編號
-                - sentence_ID: 句子編號
+                - paragraph_index: 段落編號
+                - sentence_index: 句子編號
                 - sentence: 句子內容
                 - label1: 句子的第一個標籤
                 - label2: 句子的第二個標籤
@@ -92,15 +92,19 @@ class Content:
             paragraph_list = self.paragraph_filter(paragraph_list)
             
         # 將每個段落轉換成Paragraph類型的物件，加上段落編號為ID
-        self.Paragraph_list = [Paragraph(paragraph, paragraph_ID=i+1, **kwargs) for i, paragraph in enumerate(paragraph_list)]
+        self.Paragraph_list = [Paragraph(paragraph, paragraph_index=i+1, **kwargs) for i, paragraph in enumerate(paragraph_list)]
         #// self.Paragraph_list = [Paragraph(paragraph, **kwargs) for paragraph in paragraph_list]
         
         #* 初始化df_sentence
         # 將每個段落的df_sentence合併成一個大的df_sentence, 並加上段落ID
-        df_sentence_list = [P.df_sentence.assign(paragraph_ID=P.paragraph_ID) for P in self.Paragraph_list]
+        df_sentence_list = [P.df_sentence.assign(paragraph_index=P.paragraph_index) for P in self.Paragraph_list]
         self.df_sentence = pd.concat(df_sentence_list, ignore_index=True)
-        # 重設column順序，paragraph_ID放在最前面、sentence_ID放在第二個、sentence放在第三個
-        self.df_sentence = self.df_sentence[["paragraph_ID","sentence_ID","sentence"] + [col for col in self.df_sentence.columns if col not in ["paragraph_ID","sentence_ID","sentence"]]]
+        # 合併段落編號和句子編號，形成index
+        self.df_sentence["index"] = self.df_sentence.apply(lambda row: str(row["paragraph_index"]) + "-" + str(row["sentence_index"]), axis=1)
+        # 移除paragraph_index和sentence_index
+        self.df_sentence = self.df_sentence.drop(["paragraph_index", "sentence_index"], axis=1)
+        # 重設column順序，index放在最前面、sentence放在第二個
+        self.df_sentence = self.df_sentence[["index", "sentence"] + [col for col in self.df_sentence.columns if col not in ["index","sentence"]]]
         
     def split_paragraphs(self):
         """
@@ -200,19 +204,23 @@ class Content:
     
     def predict(self):
         _ = [P.predict() for P in self.Paragraph_list]
-        df_sentence_list = [P.df_sentence.assign(paragraph_ID=P.paragraph_ID) for P in self.Paragraph_list]
+        df_sentence_list = [P.df_sentence.assign(paragraph_index=P.paragraph_index) for P in self.Paragraph_list]
         self.df_sentence = pd.concat(df_sentence_list, ignore_index=True)
-        # 重設column順序，paragraph_ID放在最前面、sentence_ID放在第二個、sentence放在第三個
-        self.df_sentence = self.df_sentence[["paragraph_ID","sentence_ID","sentence"] + [col for col in self.df_sentence.columns if col not in ["paragraph_ID","sentence_ID","sentence"]]]
+        # 合併段落編號和句子編號，形成index
+        self.df_sentence["index"] = self.df_sentence.apply(lambda row: str(row["paragraph_index"]) + "-" + str(row["sentence_index"]), axis=1)
+        # 移除paragraph_index和sentence_index
+        self.df_sentence = self.df_sentence.drop(["paragraph_index", "sentence_index"], axis=1)
+        # 重設column順序，index放在最前面、sentence放在第二個
+        self.df_sentence = self.df_sentence[["index", "sentence"] + [col for col in self.df_sentence.columns if col not in ["index","sentence"]]]
         return self.df_sentence
 class Paragraph:
     """
         Paragraph為文章的一個段落，一個Paragraph會包含以下資訊
             - paragraph: 段落的內容
             - sentence_split_method: 句子分割方法
-            - paragraph_ID: 段落的ID
+            - paragraph_index: 段落的ID
             - df_sentence: 句子的DataFrame，包含以下欄位
-                - sentence_ID: 句子的ID
+                - sentence_index: 句子的ID
                 - sentence: 句子的內容
                 - label1: 句子的第一個標籤
                 - label2: 句子的第二個標籤
@@ -223,30 +231,30 @@ class Paragraph:
             - 使用長度分割，如每個句子長度不超過20個字
             - 使用openai的API來分割段落
     """
-    def __init__(self, paragraph, sentence_split_method="length", paragraph_ID=0, **kwargs):
+    def __init__(self, paragraph, sentence_split_method="length", paragraph_index=0, **kwargs):
         #* 檢查參數
         if not isinstance(paragraph, str):
             raise TypeError("paragraph must be a string")
-        if not isinstance(paragraph_ID, int):
-            raise TypeError("paragraph_ID must be an integer")
+        if not isinstance(paragraph_index, int):
+            raise TypeError("paragraph_index must be an integer")
         
         #* 初始化
         self.paragraph = paragraph
         self.sentence_split_method = sentence_split_method
-        self.paragraph_ID = paragraph_ID
+        self.paragraph_index = paragraph_index
         sentence_list = self.split_sentences()
         
         #* 初始化Sentence
         # 將每個句子轉換成Sentence類型的物件，加上句子編號為ID
-        self.Sentence_list = [Sentence(sentence, sentence_ID=i+1, **kwargs) for i, sentence in enumerate(sentence_list)]
+        self.Sentence_list = [Sentence(sentence, sentence_index=i+1, **kwargs) for i, sentence in enumerate(sentence_list)]
         
         #* 初始化df_sentence
         model_list = kwargs.get("model_list", [])
         self.model_name_list = [model.model_name for model in model_list]
         self.df_sentence = pd.DataFrame(
-            columns = ["sentence_ID", "sentence"] + self.model_name_list
+            columns = ["sentence_index", "sentence"] + self.model_name_list
         )
-        self.df_sentence["sentence_ID"] = [S.sentence_ID for S in self.Sentence_list]
+        self.df_sentence["sentence_index"] = [S.sentence_index for S in self.Sentence_list]
         self.df_sentence["sentence"] = [S.sentence for S in self.Sentence_list]
         for model_name in self.model_name_list:
             self.df_sentence[model_name] = [S.tags[model_name] for S in self.Sentence_list]
@@ -317,16 +325,16 @@ class Sentence:
         Sentence為段落的一個句子，在目前系統中為最小單位
         每個句子會針對不同的判斷模型，有不同的tag
     """
-    def __init__(self, sentence, sentence_ID=0, model_list=[]):
+    def __init__(self, sentence, sentence_index=0, model_list=[]):
         #* 檢查參數
         if not isinstance(sentence, str):
             raise TypeError("sentence must be a string")
-        if not isinstance(sentence_ID, int):
-            raise TypeError("sentence_ID must be an integer")
+        if not isinstance(sentence_index, int):
+            raise TypeError("sentence_index must be an integer")
         
         #* 初始化
         self.sentence = sentence
-        self.sentence_ID = sentence_ID
+        self.sentence_index = sentence_index
         self.model_list = model_list
         self.tags = {}
         for model in model_list:
