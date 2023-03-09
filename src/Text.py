@@ -306,13 +306,17 @@ class Paragraph:
         sentence_list = []
         sub_sentence_buffer = "" 
         for sub_sentence in sub_sentence_list:
+            # 若句子只有1個字，加入前一個句子
+            if len(sub_sentence) <= 1:
+                sub_sentence_buffer += sub_sentence
             # 若句子長度不超過max_length，則加入前一個句子
-            if len(sub_sentence_buffer) + len(sub_sentence) <= max_length:
+            elif len(sub_sentence_buffer) + len(sub_sentence) <= max_length:
                 sub_sentence_buffer += sub_sentence
             else: # 若句子長度超過max_length，則作為一個新的句子
                 sentence_list.append(sub_sentence_buffer)
                 sub_sentence_buffer = sub_sentence
         sentence_list.append(sub_sentence_buffer) # 最後一個句子
+        sentence_list = [s for s in sentence_list if s != ""] # 去除空白句子
         return sentence_list
     
     def predict(self):
