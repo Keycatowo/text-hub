@@ -103,8 +103,8 @@ class Content:
         self.df_sentence["index"] = self.df_sentence.apply(lambda row: str(row["paragraph_index"]) + "-" + str(row["sentence_index"]), axis=1)
         # 移除paragraph_index和sentence_index
         self.df_sentence = self.df_sentence.drop(["paragraph_index", "sentence_index"], axis=1)
-        # 重設column順序，index放在最前面、sentence放在第二個
-        self.df_sentence = self.df_sentence[["index", "sentence"] + [col for col in self.df_sentence.columns if col not in ["index","sentence"]]]
+        # 重設column順序：index、paragraph_abstract、sentence、label1、label2、...
+        self.df_sentence = self.df_sentence[["index", "paragraph_abstract", "sentence"] + [col for col in self.df_sentence.columns if col not in ["index", "paragraph_abstract", "sentence"]]]
         
     def split_paragraphs(self):
         """
@@ -210,8 +210,8 @@ class Content:
         self.df_sentence["index"] = self.df_sentence.apply(lambda row: str(row["paragraph_index"]) + "-" + str(row["sentence_index"]), axis=1)
         # 移除paragraph_index和sentence_index
         self.df_sentence = self.df_sentence.drop(["paragraph_index", "sentence_index"], axis=1)
-        # 重設column順序，index放在最前面、sentence放在第二個
-        self.df_sentence = self.df_sentence[["index", "sentence"] + [col for col in self.df_sentence.columns if col not in ["index","sentence"]]]
+        # 重設column順序：index、paragraph_abstract、sentence、label1、label2、...
+        self.df_sentence = self.df_sentence[["index", "paragraph_abstract", "sentence"] + [col for col in self.df_sentence.columns if col not in ["index", "paragraph_abstract", "sentence"]]]
         return self.df_sentence
 class Paragraph:
     """
@@ -240,6 +240,7 @@ class Paragraph:
         
         #* 初始化
         self.paragraph = paragraph
+        self.paragraph_abstract = paragraph[:15] # 取前15個字當作摘要
         self.sentence_split_method = sentence_split_method
         self.paragraph_index = paragraph_index
         sentence_list = self.split_sentences()
@@ -256,6 +257,7 @@ class Paragraph:
         )
         self.df_sentence["sentence_index"] = [S.sentence_index for S in self.Sentence_list]
         self.df_sentence["sentence"] = [S.sentence for S in self.Sentence_list]
+        self.df_sentence["paragraph_abstract"] = self.paragraph_abstract
         for model_name in self.model_name_list:
             self.df_sentence[model_name] = [S.tags[model_name] for S in self.Sentence_list]
         
