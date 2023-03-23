@@ -17,8 +17,8 @@ st.write("範例模型1: ", m1.model_name, m1.label_list)
 with st.form("data_form"):
     text = st.text_area("輸入文字")
     paragraph_split_method = st.radio("段落分割方法", ["anti-indent","line", "indent"])
-    sentence_split_method = st.radio("句子分割方法", ["length", "symbol"])
     paragraph_filter_regex = st.text_input("段落過濾正則表達式", value=r"(審酌).*")
+    sentence_split_method = st.radio("句子分割方法", ["length", "symbol"])
     predicted = st.checkbox("預測", value=False)
     submit_button = st.form_submit_button(label="Submit")
     
