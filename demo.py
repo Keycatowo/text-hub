@@ -3,18 +3,16 @@ import streamlit as st
 from src.Text import Content
 from src.Model import Model
 
-@st.experimental_memo
+@st.cache_data 
 def convert_df(df):
     """
         Convert a pandas dataframe into a csv file.
         For the download button in streamlit.
     """
-    return df.to_csv(index=False).encode('utf-8')
+    return df.to_csv(index=False).encode('utf-8_sig')
 
-m1 = Model(model_name="Label1(A,B,C)", label_list=["A", "B", "C"])
-m2 = Model(model_name="Label2(T,F)", label_list=["T", "F"])
+m1 = Model()
 st.write("範例模型1: ", m1.model_name, m1.label_list)
-st.write("範例模型2: ", m2.model_name, m2.label_list)
 
 with st.form("data_form"):
     text = st.text_area("輸入文字")
@@ -29,7 +27,7 @@ if submit_button:
         content=text,
         paragraph_split_method=paragraph_split_method,
         sentence_split_method=sentence_split_method,
-        model_list=[m1, m2],
+        model_list=[m1],
         paragraph_filter_regex=paragraph_filter_regex
     )
     if predicted:

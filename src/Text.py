@@ -352,6 +352,8 @@ class Sentence:
             使用不同的模型來預測句子的tag
         """
         for model in self.model_list:
-            self.tags[model.model_name] = model.predict(self.sentence)
+            result = model.predict(self.sentence)[0]
+            self.tags[model.model_name] = result.get("label")
+            self.tags[model.model_name + "_score"] = result.get("score")
         return self.tags
     
