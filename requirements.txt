@@ -1,1 +1,6 @@
 pandas
+
+# transformers dependencies
+transformers 
+pytorch
+opencc-python-reimplemented
