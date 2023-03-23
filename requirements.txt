@@ -2,5 +2,5 @@ pandas
 
 # transformers dependencies
 transformers 
-pytorch
+torch
 opencc-python-reimplemented
