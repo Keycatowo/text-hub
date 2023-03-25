@@ -36,6 +36,11 @@ def re_replace(text,inverse=False):
     for key in re_table.keys():
         text = text.replace(key, re_table[key])
     return text
+#%%
+from punctuators.models import PunctCapSegModelONNX
+
+segmenter = PunctCapSegModelONNX.from_pretrained("pcs_47lang")
+
 
 #%%
 class Content:
@@ -265,21 +270,20 @@ class Paragraph:
         """
             拆分句子
         """
-        if self.sentence_split_method == "openai":
-            return self.split_sentences_openai()
+        if self.sentence_split_method == "model":
+            return self.split_sentences_model()
         elif self.sentence_split_method == "symbol":
             return self.split_sentences_symbol()
         elif self.sentence_split_method == "length":
             return self.split_sentences_length()
         else:
-            raise ValueError("sentence_split_method must be one of ['openai','symbol','length']")
+            raise ValueError("sentence_split_method must be one of ['model','symbol','length']")
         
     def split_sentences_openai(self):
         """
-            使用openai的API來分割句子
+            使用model來分割句子:
         """
-        # 開發中，暫時不支持
-        raise NotImplementedError("split_sentences_openai is not implemented yet")
+        return segmenter.infer([self.paragraph])[0]
     
     def split_sentences_symbol(self):
         """
