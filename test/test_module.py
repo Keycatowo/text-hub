@@ -2,6 +2,20 @@
     測試各種外部模組是否能正常執行
 """
 
+def test_import():
+    import importlib
+    # 開啟module_list.txt檔案，讀取模組名稱
+    with open("module_list.txt", "r", encoding="utf-8") as f:
+        module_list = f.read().splitlines()
+    
+    for module_name in module_list:
+        try:
+            importlib.import_module(module_name)
+        except ImportError:
+            raise ImportError(f"{module_name} 模組無法匯入")
+    
+    
+
 def test_punctuators():
     """
         測試 punctuators 模組是否能正常運作
