@@ -287,10 +287,12 @@ class Paragraph:
             return self.split_sentences_symbol()
         elif self.sentence_split_method == "length":
             return self.split_sentences_length()
+        elif self.sentence_split_method == "length+symbol":
+            return self.split_sentences_length_symbol()
         else:
-            raise ValueError("sentence_split_method must be one of ['model','symbol','length']")
+            raise ValueError("sentence_split_method must be one of ['model','symbol','length', 'length+symbol']")
         
-    def split_sentences_openai(self):
+    def split_sentences_model(self):
         """
             使用model來分割句子:
         """
@@ -298,7 +300,7 @@ class Paragraph:
     
     def split_sentences_symbol(self):
         """
-            使用符號優先分割句子
+            只使用符號分割句子
         """
         import re
         # 拆分句子
@@ -312,7 +314,27 @@ class Paragraph:
     
     def split_sentences_length(self, max_length=50):
         """
-            使用長度優先分割句子
+            使用長度分割句子
+        """
+        # 將句子分割成每個句子長度不超過max_length
+        sentence_list = []
+        sentence_buffer = ""
+        for word in self.paragraph:
+            # 若句子長度不超過max_length，則加入前一個句子
+            if len(sentence_buffer) + len(word) <= max_length:
+                sentence_buffer += word
+            # 若句子長度超過max_length，則加入sentence_list
+            else:
+                sentence_list.append(sentence_buffer)
+                sentence_buffer = word
+        # 將最後一個句子加入sentence_list
+        sentence_list.append(sentence_buffer)
+        return sentence_list
+        
+    
+    def split_sentences_length_symbol(self, max_length=50):
+        """
+            使用長度優先+符號輔助分割句子
         """
         import re
         # 用任何符號分割句子
