@@ -123,6 +123,8 @@ class Content:
             return self.split_paragraphs_indent()
         elif self.paragraph_split_method == "anti-indent":
             return self.split_paragraphs_anti_indent()
+        elif self.paragraph_split_method == "none":
+            return self.split_paragraphs_none()
         else:
             raise ValueError("paragraph_split_method must be one of ['openai','line','indent','anti-indent']")
         
@@ -195,7 +197,16 @@ class Content:
         # 去除空白段落
         paragraph_list = [paragraph for paragraph in paragraph_list if paragraph != ""]
         return paragraph_list
-                
+    
+    def split_paragraphs_none(self):
+        """
+            不拆分段落
+        """
+        # 清理所有的換行和空白
+        paragraph_list = [self.content.replace("\n", " ").replace(" ", "").strip()]
+        return paragraph_list
+    
+    
     def paragraph_filter(self, paragraph_list):
         import re
         new_paragraph_list = []
